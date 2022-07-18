@@ -75,6 +75,15 @@ def checkInside(areaname, lat, lon, alt):
     area = basic_shapes[areaname]
     return area.checkInside(lat, lon, alt)
 
+def checkIntersect(areaname, lat0, lon0, lat1, lon1):
+    """ Check if points with coordinates lat, lon, alt are inside area with name 'areaname'.
+        Returns an array of booleans. True ==  Inside"""
+    if areaname not in basic_shapes:
+        print(basic_shapes)
+        return 0
+    area = basic_shapes[areaname]
+    return area.checkIntersect(lat0, lon0, lat1, lon1)
+
 def deleteArea(areaname):
     """ Delete area with name 'areaname'. """
     if areaname in basic_shapes:
@@ -162,6 +171,9 @@ class Shape:
         '''
         return False
 
+    def checkIntersect(self, lat0, lon0, lat1, lon1):
+        return False
+
     def _str_vrange(self):
         if self.top < 9e8:
             if self.bottom > -9e8:
@@ -191,6 +203,11 @@ class Line(Shape):
         return f'{self.name} is a LINE with ' \
             f'start point ({self.coordinates[0]}, {self.coordinates[1]}), ' \
             f'and end point ({self.coordinates[2]}, {self.coordinates[3]}).'
+    
+    def checkIntersect(self, lat0, lon0, lat1, lon1):
+        line1 = Path(np.array([[lat0,lon0],[lat1,lon1]]))
+        line2 = Path(np.reshape(self.coordinates, (len(self.coordinates) // 2, 2)))
+        return line2.intersects_path(line1)
 
 
 class Box(Shape):
@@ -238,3 +255,4 @@ class Poly(Shape):
         points = np.vstack((lat,lon)).T
         inside = np.all((self.border.contains_points(points), self.bottom <= alt, alt <= self.top), axis=0)
         return inside
+
