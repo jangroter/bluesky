@@ -6,8 +6,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from SAC.buffer import ReplayBuffer
-from SAC.actor_critic import Actor, CriticQ, CriticV
+from plugins.SAC.buffer import ReplayBuffer
+from plugins.SAC.actor_critic import Actor, CriticQ, CriticV
 from torch.nn.utils.clip_grad import clip_grad_norm_
 
 
@@ -19,8 +19,8 @@ POLICY_UPDATE_FREQUENCE = 1
 BUFFER_SIZE = 1000000
 BATCH_SIZE = 256
 
-LR_A = 3e-3
-LR_Q = 3e-3
+LR_A = 3e-4
+LR_Q = 3e-4
 
 N_NEURONS = 256
 
@@ -82,7 +82,7 @@ class SAC:
         self.total_step += 1
         return selected_action.tolist()
     
-    def store_transition(self,state, new_state, reward, action, done):       
+    def store_transition(self,state, action, reward, new_state, done):       
         if not self.is_test:           
             self.transition = [state, action, reward, new_state, done]
             self.memory.store(*self.transition)
