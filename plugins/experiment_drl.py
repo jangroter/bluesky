@@ -14,6 +14,8 @@ timestep = 1.5
 state_size, _ = fn.get_statesize()
 action_size = 3
 
+onsetperiod = 600 # Number of seconds before experiment starts
+
 def init_plugin():
     
     experiment_drl = Experiment_drl()
@@ -121,16 +123,18 @@ class Experiment_drl(core.Entity):
             inbounds    = fn.checkinbounds(traf.lat[ac_idx], traf.lon[ac_idx])               
             if inbounds:
                 
-                targetalt, control, layer   = fn.get_targetalt(ac_idx)
-                self.control[ac_idx]        = control
-                self.targetalt[ac_idx]      = targetalt                                 #ft
-                self.distinit[ac_idx]       = (abs(targetalt*ft - traf.alt[ac_idx]))/ft #ft
+                targetalt, control, layer = fn.get_targetalt(ac_idx)
+
+                if bs.sim.simt > onsetperiod:
+                    self.control[ac_idx] = control
+                    self.targetalt[ac_idx] = targetalt                                 #ft
+                    self.distinit[ac_idx] = (abs(targetalt*ft - traf.alt[ac_idx]))/ft #ft
 
                 # Ensure that each aircraft only has one chance at getting
                 # an altitude command, dont reset first if control == 1
                 # because that information is still required in that case.
                 if control == 0:
-                    self.first[ac_idx]      = 0
+                    self.first[ac_idx] = 0
 
     def do_action(self,action,acid,ac_idx):
         self.do_vz(action,acid,ac_idx)     
