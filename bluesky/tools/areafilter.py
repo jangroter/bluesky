@@ -76,10 +76,9 @@ def checkInside(areaname, lat, lon, alt):
     return area.checkInside(lat, lon, alt)
 
 def checkIntersect(areaname, lat0, lon0, lat1, lon1):
-    """ Check if points with coordinates lat, lon, alt are inside area with name 'areaname'.
-        Returns an array of booleans. True ==  Inside"""
+    """ Check if line defined by lat0, lon0, lat1 and lon1 cross (poly)line with name 'areaname.
+        Returns boolean. True ==  Intersect"""
     if areaname not in basic_shapes:
-        print(basic_shapes)
         return 0
     area = basic_shapes[areaname]
     return area.checkIntersect(lat0, lon0, lat1, lon1)
