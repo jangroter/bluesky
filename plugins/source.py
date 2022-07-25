@@ -1,0 +1,87 @@
+from bluesky import core, stack, traf  #, settings, navdb, sim, scr, tools
+from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
+from bluesky.tools import geo, aero, areafilter, plotter
+import bluesky as bs
+import numpy as np
+import area
+import random
+import math
+
+from sink import poly_arc
+
+
+def init_plugin():
+    
+    source = Source()
+    
+    # Configuration parameters
+    config = {
+        # The name of your plugin
+        'plugin_name':     'SOURCE',
+
+        # The type of this plugin. For now, only simulation plugins are possible.
+        'plugin_type':     'sim',
+        }
+
+    # init_plugin() should always return a configuration dict.
+    return config
+
+
+class Source(core.Entity):
+    
+    # Define border of airspace with center at AMS
+    circlelat           = 52.3322
+    circlelon           = 4.75
+    circlerad           = 150
+    
+    aircraftnumber      = 0
+    
+    speed               = 250
+    
+    spawntime = 30
+
+    def __init__(self):
+        super().__init__()
+        stack.stack(f'Circle source {self.circlelat} {self.circlelon} {self.circlerad}')
+        stack.stack('Area source')
+
+        poly_arc(self.circlelat,self.circlelon,30,160,20)
+    
+    @core.timed_function(name='source', dt=spawntime)
+    def update(self): 
+        print(areafilter.checkIntersect('SINK', 52.00, 3.5, 53.00,3.5))
+        self.aircraftnumber    += 1 
+        acid                    = 'kl00' + str(self.aircraftnumber)
+        heading                 = random.randint(0,359)
+        altitude                = 36000
+        lat,lon                 = self.get_spawn(heading)
+        speed                   = self.speed
+        
+        stack.stack(f'CRE {acid} a320 {lat} {lon} {heading} {altitude} {speed}')
+                
+    
+    def get_spawn(self, heading):
+
+        enterpoint = random.randint(-9999,9999)/10000
+       
+        bearing     = np.deg2rad(heading + 180) + math.asin(enterpoint)
+
+        lat         = np.deg2rad(self.circlelat)
+        lon         = np.deg2rad(self.circlelon)
+        radius      = self.circlerad * 1.852
+        
+        latspawn    = np.rad2deg(self.get_new_latitude(bearing,lat, radius))
+        lonspawn    = np.rad2deg(self.get_new_longitude(bearing, lon, lat, np.deg2rad(latspawn), radius))
+        
+        return latspawn, lonspawn
+        
+    def get_new_latitude(self,bearing,lat,radius):
+        R = Rearth/1000.
+        return math.asin( math.sin(lat)*math.cos(radius/R) +\
+               math.cos(lat)*math.sin(radius/R)*math.cos(bearing))
+        
+    def get_new_longitude(self,bearing,lon,lat1,lat2,radius):
+        R   = Rearth/1000.
+        return lon + math.atan2(math.sin(bearing)*math.sin(radius/R)*\
+                     math.cos(lat1),math.cos(radius/R)-math.sin(lat1)*math.sin(lat2))
+        
