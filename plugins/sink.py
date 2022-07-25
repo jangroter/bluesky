@@ -28,7 +28,7 @@ def poly_arc(lat_c,lon_c,radius,lowerbound,upperbound):
     lower = np.deg2rad(lowerbound)
     upper = np.deg2rad(upperbound)
     # compute the x and y coordinates of the circle
-    angles    = np.linspace(lower,upper,numPoints)   # ,endpoint=True) # [rad]
+    angles = np.linspace(lower,upper,numPoints)   # ,endpoint=True) # [rad]
 
     # Calculate the circle coordinates in lat/lon degrees.
     # Use flat-earth approximation to convert from cartesian to lat/lon.

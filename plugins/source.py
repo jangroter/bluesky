@@ -34,11 +34,9 @@ class Source(core.Entity):
     circlelon           = 4.75
     circlerad           = 150
     
-    aircraftnumber      = 0
-    
     speed               = 250
     
-    spawntime = 30
+    spawntime = 600
 
     def __init__(self):
         super().__init__()
@@ -47,17 +45,17 @@ class Source(core.Entity):
 
         poly_arc(self.circlelat,self.circlelon,30,160,20)
     
-    @core.timed_function(name='source', dt=spawntime)
-    def update(self): 
-        print(areafilter.checkIntersect('SINK', 52.00, 3.5, 53.00,3.5))
-        self.aircraftnumber    += 1 
-        acid                    = 'kl00' + str(self.aircraftnumber)
+    def create_ac(self): 
+        acid                    = 'KL001'
         heading                 = random.randint(0,359)
-        altitude                = 36000
+        altitude                = 36000 * ft
         lat,lon                 = self.get_spawn(heading)
-        speed                   = self.speed
+        speed                   = self.speed * kts
         
-        stack.stack(f'CRE {acid} a320 {lat} {lon} {heading} {altitude} {speed}')
+        traf.cre(acid,'a320',lat,lon,heading,altitude,speed)
+
+        #stack.stack(f'CRE {acid} a320 {lat} {lon} {heading} {altitude} {speed}')
+        stack.stack(f'ADDWPTMODE {acid} FLYOVER')
                 
     
     def get_spawn(self, heading):
