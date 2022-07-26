@@ -168,6 +168,7 @@ class Experiment_drl(core.Entity):
         
         elif self.nactions[idx] > max_episode_length:
             self.rewards = np.append(self.rewards, self.totreward[idx])
+            self.print = True
             bs.traf.delete(idx)
         
 
@@ -245,7 +246,7 @@ class Experiment_drl(core.Entity):
     def get_rew_fuel(self, coeff = 0):
         return coeff
 
-    def get_rew_finish(self, idx, state, coeff = 2):
+    def get_rew_finish(self, idx, state, coeff = 15):
         lat, lon = self.get_latlon_state(state)
 
         lat_ = bs.traf.lat[idx]
@@ -255,7 +256,7 @@ class Experiment_drl(core.Entity):
             return coeff, 1
 
         if areafilter.checkIntersect('RESTRICT', lat, lon, lat_, lon_):
-            return -coeff, 1
+            return -2, 1
 
         else:
             return 0, 0
