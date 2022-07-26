@@ -44,10 +44,9 @@ def poly_arc(lat_c,lon_c,radius,lowerbound,upperbound):
     for i in range(0,len(latCircle)):
         command += ' '+str(latCircle[i])+' '
         command += str(lonCircle[i])
-    print(command)
     stack.stack(command)
 
-    stack.stack(f'POLYLINE restrict {latCircle[0]} {lonCircle[0]} {lat_c} {lon_c} {latCircle[-1]} {lonCircle[-1]}')
-    stack.stack('COLOR restrict red')
+    stack.stack(f'POLYLINE RESTRICT {latCircle[0]} {lonCircle[0]} {lat_c} {lon_c} {latCircle[-1]} {lonCircle[-1]}')
+    stack.stack('COLOR RESTRICT red')
 
     

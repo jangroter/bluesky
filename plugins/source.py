@@ -1,6 +1,7 @@
 from bluesky import core, stack, traf  #, settings, navdb, sim, scr, tools
 from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
 from bluesky.tools import geo, aero, areafilter, plotter
+
 import bluesky as bs
 import numpy as np
 import area
@@ -38,24 +39,26 @@ class Source(core.Entity):
     
     spawntime = 600
 
+    ac_nmbr = 1
+
     def __init__(self):
         super().__init__()
         stack.stack(f'Circle source {self.circlelat} {self.circlelon} {self.circlerad}')
-        stack.stack('Area source')
 
         poly_arc(self.circlelat,self.circlelon,30,160,20)
     
     def create_ac(self): 
-        acid                    = 'KL001'
+        acid                    = 'KL' + str(self.ac_nmbr)
         heading                 = random.randint(0,359)
         altitude                = 36000 * ft
         lat,lon                 = self.get_spawn(heading)
         speed                   = self.speed * kts
         
         traf.cre(acid,'a320',lat,lon,heading,altitude,speed)
-
+        
         #stack.stack(f'CRE {acid} a320 {lat} {lon} {heading} {altitude} {speed}')
         stack.stack(f'ADDWPTMODE {acid} FLYOVER')
+        self.ac_nmbr += 1
                 
     
     def get_spawn(self, heading):
