@@ -253,5 +253,5 @@ class Server(Thread):
             n.wait()
 
 
-    def customevent(eventname,src,dest,msg,route,data,sender_id):
+    def customevent(self,eventname,src,dest,msg,route,data,sender_id):
         return False
