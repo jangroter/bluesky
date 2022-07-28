@@ -4,6 +4,8 @@ from bluesky.core import Signal
 from bluesky import stack
 from bluesky import tools
 
+import importlib.util
+import sys
 
 # Constants
 BS_OK = 0
@@ -28,9 +30,8 @@ server = None
 
 
 def init(mode='sim', configfile=None, scenfile=None, discoverable=False,
-         gui=None, detached=False, **kwargs):
+         gui=None, detached=False, serverpath=None, **kwargs):
     ''' Initialize bluesky modules.
-
         Arguments:
         - mode: Running mode of this bluesky process [sim/client/server]
         - configfile: Load a different configuration file [filename]
@@ -39,6 +40,7 @@ def init(mode='sim', configfile=None, scenfile=None, discoverable=False,
           when this process is running a server) [True/False]
         - gui: Gui type (only when mode is client or server) [qtgl/pygame/console]
         - detached: Run with or without networking (only when mode is sim) [True/False]
+        - serverpath: Path to custom server file in plugins [filename]
     '''
 
     # Argument checking
@@ -75,10 +77,21 @@ def init(mode='sim', configfile=None, scenfile=None, discoverable=False,
     # If mode is server-gui or server-headless start the networking server
     if mode == 'server':
         global server
-        from bluesky.network.server import Server
-        server = Server(discoverable, configfile, scenfile)
-
-    # The remaining objects are only instantiated in the sim nodes
+        
+        if serverpath is None:
+            from bluesky.network.server import Server
+            server = Server(discoverable, configfile, scenfile)
+        else:
+            # load the module name from the file
+            # if server path does not end with .py, add .py
+            if not serverpath.endswith('.py'):
+                serverpath += '.py'
+            spec = importlib.util.spec_from_file_location('CustomServer', f'plugins/{serverpath}')
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            server = module.CustomServer(discoverable, configfile, scenfile)
+    
+    # The remaining objects are only instantiate in the sim nodes
     if mode == 'sim':
         from bluesky.traffic import Traffic
         from bluesky.simulation import Simulation

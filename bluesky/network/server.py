@@ -230,6 +230,9 @@ class Server(Thread):
                         eventname = b'ECHO'
                         data = msgpack.packb(dict(text=echomsg, flags=0), use_bin_type=True)
 
+                    if self.customevent(eventname,src,dest,msg,route,data,sender_id):
+                        continue
+
                     # ============================================================
                     # If we get here there is a message that needs to be forwarded
                     # Cycle the route by one step to get the next hop in the route
@@ -248,3 +251,7 @@ class Server(Thread):
         # Wait for all nodes to finish
         for n in self.spawned_processes:
             n.wait()
+
+
+    def customevent(eventname,src,dest,msg,route,data,sender_id):
+        return False
