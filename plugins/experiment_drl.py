@@ -63,8 +63,6 @@ class Experiment_drl(core.Entity):
 
         self.source = Source()
 
-        ## Initialize Experiment Area with Sink & Source ##
-
         with self.settrafarrays():
             self.totreward = np.array([])  # Total reward this AC has accumulated
             self.nactions = np.array([])  # Total reward this AC has accumulated
