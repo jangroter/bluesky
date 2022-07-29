@@ -32,9 +32,9 @@ class CustomServer(Server):
         msgpassed = False
 
         if eventname == b'GETACTION':
-            _, keys, state = msgpack.unpackb(data, raw=False)
+            state, idx = msgpack.unpackb(data, raw=False)
             action = self.agent.step(state)
-            stackcommand = f'GETACTION {action}' # transform into stackcommand here
+            stackcommand = f'SETACTION {action[0]}, {state}, {idx}' # transform into stackcommand here
             data = msgpack.packb(stackcommand, use_bin_type=True)
             self.sendaction(sender_id, data)
             msgpassed = True  

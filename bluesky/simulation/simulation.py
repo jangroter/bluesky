@@ -225,6 +225,7 @@ class Simulation:
 
         if eventname == b'STACK':
             # We received a single stack command. Add it to the existing stack
+            print(eventdata)
             bs.stack.stack(eventdata, sender_id=sender_rte)
             event_processed = True
 
