@@ -11,6 +11,8 @@ from bluesky.core import plugin, simtime
 from bluesky.stack import simstack, recorder
 from bluesky.tools import datalog, areafilter, plotter
 
+import plugins.custom_events as ce
+
 # Minimum sleep interval
 MINSLEEP = 1e-3
 
@@ -225,7 +227,6 @@ class Simulation:
 
         if eventname == b'STACK':
             # We received a single stack command. Add it to the existing stack
-            print(eventdata)
             bs.stack.stack(eventdata, sender_id=sender_rte)
             event_processed = True
 
@@ -247,7 +248,11 @@ class Simulation:
                 custgrclr=bs.scr.custgrclr, settings=bs.settings._settings_hierarchy,
                 plugins=list(plugin.Plugin.plugins.keys()))
             bs.net.send_event(b'SIMSTATE', simstate, target=sender_rte)
-        else:
+
+        #elif 'CUSTOM_EVENTS' in plugin.Plugin.loaded_plugins:
+         #   ce.custom_events.process(eventname,eventdata)
+
+        if event_processed == False:
             # This is either an unknown event or a gui event.
             event_processed = bs.scr.event(eventname, eventdata, sender_rte)
 

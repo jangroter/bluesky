@@ -4,6 +4,8 @@ from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
 from bluesky.tools import geo, aero, areafilter, plotter
 from bluesky.traffic import Route
 from bluesky import stack
+from bluesky.network.npcodec import encode_ndarray, decode_ndarray
+import msgpack
 
 import bluesky as bs
 import numpy as np
@@ -12,6 +14,8 @@ import math
 import plugins.SAC.sac_agent as sac
 from plugins.source import Source
 import plugins.functions as fn
+
+import plugins.custom_events as ce
 
 timestep = 1.5
 state_size = 2
@@ -42,11 +46,11 @@ def init_plugin():
 
     
     stackfunctions = {
-        'SETACTION': [
-            'SETACTION [action],[state], idx',
-            '',
+        "SETACTION": [
+            "SETACTION msgdict",
+            "string",
             experiment_drl.set_action,
-            'Get the action to be executed by the DRL agent'
+            "Get the action to be executed by the DRL agent"
         ]
     }
 
@@ -77,8 +81,9 @@ class Experiment_drl(core.Entity):
             self.totreward = np.array([])  # Total reward this AC has accumulated
             self.nactions = np.array([])  # Total reward this AC has accumulated
 
-            self.state = []    # Latest state information
-            self.action = []    # Latest selected actions
+            self.state = [] # Previous timestep state information   
+            self.state_ = [] # Latest state information
+            self.action = [] # Previous timestep selected action
 
     def create(self, n=1):
         super().create(n)
@@ -86,29 +91,33 @@ class Experiment_drl(core.Entity):
         self.nactions[-n:] = 0
 
         self.state[-n:] = list(np.zeros(self.state_size))
+        self.state_[-n:] = list(np.zeros(self.state_size))
         self.action[-n:] = list(np.zeros(self.action_size))
 
     @core.timed_function(name='experiment_drl', dt=timestep)
     def update(self):
+        
 
         if bs.traf.ntraf == 0:
             self.source.create_ac()
-
         idx = 0
         
-        self.check_ac()
+        # self.check_ac()
         
-        if not self.first:
-           self.check_done(idx)
+        # if not self.first:
+        #    self.check_done(idx)
         
-        if self.action_required:
-            state = self.get_state(idx)
-            self.get_action(state,idx)
-            self.first = False
+        # if self.action_required:
+        state = self.get_state(idx)
+        print('something')
+        self.get_action(state,idx)
+        self.first = False
 
-        if len(self.rewards) % 50 == 0 and self.print == True:
-           self.print = False
-           print(np.mean(self.rewards[-500:]))
+        ce.custom_events.process(1,"MY_EVENT")
+
+        # if len(self.rewards) % 50 == 0 and self.print == True:
+        #    self.print = False
+        #    print(np.mean(self.rewards[-500:]))
 
     def check_ac(self):
         if bs.traf.ntraf == 0:
@@ -125,38 +134,40 @@ class Experiment_drl(core.Entity):
         bs.net.send_event(b'GETACTION', (state,idx))
 
     @stack.command()
-    def set_action(self, *args):
+    def set_action(self,data):
+        msgdict = msgpack.unpackb(data, object_hook=decode_ndarray, raw=False)
+        print(msgdict)
+        bs.sim.op()
+        # acid = bs.traf.id[idx]
 
-        acid = bs.traf.id[idx]
+        # action = action[0]
+        # distance = max(math.sqrt(action[0]**2 + action[1]**2)*max_action,2)
+        # bearing = math.atan2(action[1],action[0])
 
-        action = action[0]
-        distance = max(math.sqrt(action[0]**2 + action[1]**2)*max_action,2)
-        bearing = math.atan2(action[1],action[0])
+        # ac_lat = np.deg2rad(bs.traf.lat[idx])
+        # ac_lon = np.deg2rad(bs.traf.lon[idx])
 
-        ac_lat = np.deg2rad(bs.traf.lat[idx])
-        ac_lon = np.deg2rad(bs.traf.lon[idx])
+        # new_lat = self.get_new_latitude(bearing,ac_lat,distance)
+        # new_lon = self.get_new_longitude(bearing,ac_lon,ac_lat,new_lat,distance)
 
-        new_lat = self.get_new_latitude(bearing,ac_lat,distance)
-        new_lon = self.get_new_longitude(bearing,ac_lon,ac_lat,new_lat,distance)
+        # self.action_required = False
+        # self.new_wpt_set = True
 
-        self.action_required = False
-        self.new_wpt_set = True
+        # if not self.first:
+        #     stack.stack(f'DELRTE {acid}')
 
-        if not self.first:
-            stack.stack(f'DELRTE {acid}')
+        # stack.stack(f'ADDWPT {acid} {np.rad2deg(new_lat)},{np.rad2deg(new_lon)}')
 
-        stack.stack(f'ADDWPT {acid} {np.rad2deg(new_lat)},{np.rad2deg(new_lon)}')
+        # if not self.first:
+        #     reward, done = self.get_reward(idx,self.state[idx],state)
+        #     self.totreward[idx] += reward
 
-        if not self.first:
-            reward, done = self.get_reward(idx,self.state[idx],state)
-            self.totreward[idx] += reward
-
-            bs.net.send_event(b'SETRESULT', (self.state[idx],action,reward,state,done))
+        #     bs.net.send_event(b'SETRESULT', (self.state[idx],action,reward,state,done))
         
-        self.state[idx] = state
-        self.action[idx] = action
+        # self.state[idx] = state
+        # self.action[idx] = action
 
-        self.nactions[idx] += 1
+        # self.nactions[idx] += 1
         
     def check_past_wpt(self, idx):
         if self.new_wpt_set:
@@ -280,5 +291,3 @@ class Experiment_drl(core.Entity):
             return coeff, 1
         else:
             return 0, 0
-
-

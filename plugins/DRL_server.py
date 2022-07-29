@@ -8,6 +8,8 @@ import msgpack
 # Local imports
 import bluesky as bs
 from bluesky.network.server import Server, split_scenarios
+from bluesky.network.npcodec import encode_ndarray, decode_ndarray
+import numpy as np
 
 
 state_size = 2
@@ -34,10 +36,29 @@ class CustomServer(Server):
         if eventname == b'GETACTION':
             state, idx = msgpack.unpackb(data, raw=False)
             action = self.agent.step(state)
-            stackcommand = f'SETACTION {action[0]}, {state}, {idx}' # transform into stackcommand here
-            data = msgpack.packb(stackcommand, use_bin_type=True)
+
+            data = data = msgpack.packb((action), use_bin_type=False)
             self.sendaction(sender_id, data)
-            msgpassed = True  
+            
+            # command = f'SETACTION {idx}'
+            # for i in range(0,len(action[0])):
+            #     command += ' '+str(action[0][i])
+
+            # stackcommand = command # transform into stackcommand here
+
+            # naction = np.array(action).flatten()
+            # nstate = np.array(state).flatten()
+            # nidx = np.array([idx])
+            # data = np.concatenate((naction,nstate,nidx))
+
+            # encdata = encode_ndarray(data)
+            # print(encdata)
+
+            # stackcommand = f"SETACTION {encdata.get('data')}"
+
+            # data = msgpack.packb(stackcommand, use_bin_type=True)
+            # self.sendaction(sender_id, data)
+            # msgpassed = True  
         
         elif eventname == b'SETRESULT':
             state, action, reward, state_, done = msgpack.unpackb(data, raw=False)
@@ -47,4 +68,4 @@ class CustomServer(Server):
         return msgpassed
     
     def sendaction(self, worker_id, data):
-        self.be_event.send_multipart([worker_id, self.host_id, b'STACK', data])
+        self.be_event.send_multipart([worker_id, self.host_id, b'MYEVENT', data])
