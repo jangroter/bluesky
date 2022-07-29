@@ -29,7 +29,7 @@ class Plugin:
     def __init__(self, fname):
         self.module_path = fname.parent.as_posix()
         self.module_name = fname.stem
-        self.module_imp = (fname.parent / fname.stem).as_posix().replace('/', '.')
+        self.module_imp = (fname.parent.stem+'/'+fname.stem).replace('/', '.')
         self.plugin_doc   = ''
         self.plugin_name  = ''
         self.plugin_type  = ''
