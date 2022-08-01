@@ -27,45 +27,35 @@ class CustomServer(Server):
     def __init__(self, discovery, altconfig=None, startscn=None):
 
         self.agent = sac.SAC(state_size,action_size)
-
+        self.rewards = np.array([])
         super().__init__(discovery, altconfig, startscn)
 
     def customevent(self, eventname, src, dest, msg, route, data, sender_id):
         msgpassed = False
 
-        if eventname == b'GETACTION':
-            state, idx = msgpack.unpackb(data, raw=False)
+        if eventname == b'REQUESTACTION':
+            state, acid = msgpack.unpackb(data, raw=False)
             action = self.agent.step(state)
 
-            data = data = msgpack.packb((action), use_bin_type=False)
+            data = data = msgpack.packb((action,state,acid), use_bin_type=False)
             self.sendaction(sender_id, data)
-            
-            # command = f'SETACTION {idx}'
-            # for i in range(0,len(action[0])):
-            #     command += ' '+str(action[0][i])
 
-            # stackcommand = command # transform into stackcommand here
-
-            # naction = np.array(action).flatten()
-            # nstate = np.array(state).flatten()
-            # nidx = np.array([idx])
-            # data = np.concatenate((naction,nstate,nidx))
-
-            # encdata = encode_ndarray(data)
-            # print(encdata)
-
-            # stackcommand = f"SETACTION {encdata.get('data')}"
-
-            # data = msgpack.packb(stackcommand, use_bin_type=True)
-            # self.sendaction(sender_id, data)
-            # msgpassed = True  
+            msgpassed = True  
         
         elif eventname == b'SETRESULT':
             state, action, reward, state_, done = msgpack.unpackb(data, raw=False)
             self.agent.store_transition(state,action,reward,state_,done)
             self.agent.train()
 
+            msgpassed = True
+
+        elif eventname == b'FINALREWARD':
+            reward = msgpack.unpackb(data, raw=False)
+            self.rewards = np.append(self.rewards, reward)
+            if len(self.rewards)%100 == 0:
+                print(np.mean(self.rewards[-500:]))
+
         return msgpassed
     
     def sendaction(self, worker_id, data):
-        self.be_event.send_multipart([worker_id, self.host_id, b'MYEVENT', data])
+        self.be_event.send_multipart([worker_id, self.host_id, b'SETACTION', data])

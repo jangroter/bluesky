@@ -13,6 +13,7 @@ import math
 
 import plugins.SAC.sac_agent as sac
 from plugins.source import Source
+import plugins.source as sc
 import plugins.functions as fn
 
 import plugins.custom_events as ce
@@ -44,23 +45,15 @@ def init_plugin():
         'plugin_type':     'sim',
         }
 
-    
-    stackfunctions = {
-        "SETACTION": [
-            "SETACTION msgdict",
-            "string",
-            experiment_drl.set_action,
-            "Get the action to be executed by the DRL agent"
-        ]
-    }
-
     # init_plugin() should always return these two dicts.
-    return config, stackfunctions
+    return config
 
 
 class Experiment_drl(core.Entity):  
     def __init__(self):
         super().__init__()
+
+        self.count = 0
 
         self.rewards = np.array([])
         self.state_size = state_size
@@ -71,11 +64,12 @@ class Experiment_drl(core.Entity):
         self.AC_present = False
         self.new_wpt_set = True
         self.print = False
+        self.waiting_for_action = False
         
+        self.source = Source()
+
         self.wptdist = 0
         self.wptdist_old = 0
-
-        self.source = Source()
 
         with self.settrafarrays():
             self.totreward = np.array([])  # Total reward this AC has accumulated
@@ -87,6 +81,7 @@ class Experiment_drl(core.Entity):
 
     def create(self, n=1):
         super().create(n)
+        self.count += 1
         self.totreward[-n:] = 0
         self.nactions[-n:] = 0
 
@@ -96,79 +91,90 @@ class Experiment_drl(core.Entity):
 
     @core.timed_function(name='experiment_drl', dt=timestep)
     def update(self):
-        
 
-        if bs.traf.ntraf == 0:
-            self.source.create_ac()
         idx = 0
-        
-        # self.check_ac()
-        
-        # if not self.first:
-        #    self.check_done(idx)
-        
-        # if self.action_required:
-        state = self.get_state(idx)
-        print('something')
-        self.get_action(state,idx)
-        self.first = False
+        self.check_ac(idx)
 
-        ce.custom_events.process(1,"MY_EVENT")
+        if not self.first:
+           self.check_done(idx)
+        
+        if self.waiting_for_action:
+            new_data, action = self.get_action(idx)
+            if new_data:
+                self.action[idx] = action
+                self.do_action(idx,action)
+                self.waiting_for_action = False
+            else:
+                return
+
+        if self.action_required:
+            state_ = self.get_state(idx)
+            acid = bs.traf.id[idx]
+            self.request_action(state_,acid) # use acid for requesting action as traf arrays can change between data transfers
+            if not self.first:
+                reward, done = self.get_reward(idx,self.state[idx],state_)
+                self.store_transition(self.state[idx],self.action[idx],reward,state_,done)
+            self.state[idx] = state_
+            self.first = False
+            self.action_required = False
+            self.waiting_for_action = True
+
+            # bs.sim.hold()
 
         # if len(self.rewards) % 50 == 0 and self.print == True:
         #    self.print = False
         #    print(np.mean(self.rewards[-500:]))
 
-    def check_ac(self):
+    def check_ac(self,idx):
         if bs.traf.ntraf == 0:
             self.source.create_ac()
             self.first = True
             self.action_required = True
         else: 
-            if self.check_past_wpt(0):
+            if self.check_past_wpt(idx):
                 self.action_required = True
             else:
                 self.action_required = False
     
-    def get_action(self, state, idx):
-        bs.net.send_event(b'GETACTION', (state,idx))
+    def request_action(self, state, acid):
+        bs.net.send_event(b'REQUESTACTION', (state,acid))
 
-    @stack.command()
-    def set_action(self,data):
-        msgdict = msgpack.unpackb(data, object_hook=decode_ndarray, raw=False)
-        print(msgdict)
-        bs.sim.op()
-        # acid = bs.traf.id[idx]
-
-        # action = action[0]
-        # distance = max(math.sqrt(action[0]**2 + action[1]**2)*max_action,2)
-        # bearing = math.atan2(action[1],action[0])
-
-        # ac_lat = np.deg2rad(bs.traf.lat[idx])
-        # ac_lon = np.deg2rad(bs.traf.lon[idx])
-
-        # new_lat = self.get_new_latitude(bearing,ac_lat,distance)
-        # new_lon = self.get_new_longitude(bearing,ac_lon,ac_lat,new_lat,distance)
-
-        # self.action_required = False
-        # self.new_wpt_set = True
-
-        # if not self.first:
-        #     stack.stack(f'DELRTE {acid}')
-
-        # stack.stack(f'ADDWPT {acid} {np.rad2deg(new_lat)},{np.rad2deg(new_lon)}')
-
-        # if not self.first:
-        #     reward, done = self.get_reward(idx,self.state[idx],state)
-        #     self.totreward[idx] += reward
-
-        #     bs.net.send_event(b'SETRESULT', (self.state[idx],action,reward,state,done))
+    def get_action(self,idx):
+        action = None
+        new_data = False
+        if ce.custom_events.data_available[idx] == 1:
+            action = ce.custom_events.action[idx]
+            new_data = True
+            ce.custom_events.data_available[idx] = 0
         
-        # self.state[idx] = state
-        # self.action[idx] = action
+        return new_data, action
+    
+    def do_action(self,idx,action):
 
-        # self.nactions[idx] += 1
-        
+        acid = bs.traf.id[idx]
+
+        distance = max(math.sqrt(action[0]**2 + action[1]**2)*max_action,2)
+        bearing = math.atan2(action[1],action[0])
+
+        ac_lat = np.deg2rad(bs.traf.lat[idx])
+        ac_lon = np.deg2rad(bs.traf.lon[idx])
+
+        new_lat = self.get_new_latitude(bearing,ac_lat,distance)
+        new_lon = self.get_new_longitude(bearing,ac_lon,ac_lat,new_lat,distance)
+
+        self.action_required = False
+        self.new_wpt_set = True
+
+        if not self.first:
+            stack.stack(f'DELRTE {acid}')
+
+        stack.stack(f'ADDWPT {acid} {np.rad2deg(new_lat)},{np.rad2deg(new_lon)}')
+
+        self.nactions[idx] += 1
+
+    def store_transition(self,state,action,reward,state_,done):
+        bs.net.send_event(b'SETRESULT', (state,action,reward,state_,done))
+
     def check_past_wpt(self, idx):
         if self.new_wpt_set:
             dis = fn.haversine(bs.traf.lat[idx], bs.traf.lon[idx], bs.traf.actwp.lat[idx], bs.traf.actwp.lon[idx])
@@ -191,7 +197,6 @@ class Experiment_drl(core.Entity):
         return False
 
     def check_done(self,idx):
-
         finish, d_f = self.get_rew_finish(idx,self.state[idx])
         oob, d_oob = self.get_rew_outofbounds(idx)
 
@@ -199,21 +204,28 @@ class Experiment_drl(core.Entity):
         reward = finish+oob
 
         if done:
-            state = self.get_state(idx)
+            state_ = self.get_state(idx)
             self.totreward[idx] += reward
             self.rewards = np.append(self.rewards, self.totreward[idx])
 
-            self.agent.store_transition(self.state[idx],self.action[idx][0],reward,state,done)
-            self.agent.train()
- 
+            if self.nactions[idx] > 0: 
+                self.store_transition(self.state[idx],self.action[idx],reward,state_,done)
+                bs.net.send_event(b'FINALREWARD', (self.totreward[idx]))
+
             self.action_required = False
+            self.waiting_for_action = False
+            ce.custom_events.data_available[idx] = 0
             self.print = True
 
             bs.traf.delete(idx)
         
         elif self.nactions[idx] > max_episode_length:
             self.rewards = np.append(self.rewards, self.totreward[idx])
+            bs.net.send_event(b'FINALREWARD', (self.totreward[idx]))
             self.print = True
+            self.action_required = False
+            self.waiting_for_action = False
+            ce.custom_events.data_available[idx] = 0
             bs.traf.delete(idx)
         
 

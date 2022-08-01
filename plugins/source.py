@@ -10,9 +10,9 @@ import math
 
 from sink import poly_arc
 
-
+source = None
 def init_plugin():
-    
+    global source
     source = Source()
     
     # Configuration parameters
@@ -85,4 +85,6 @@ class Source(core.Entity):
         R   = Rearth/1000.
         return lon + math.atan2(math.sin(bearing)*math.sin(radius/R)*\
                      math.cos(lat1),math.cos(radius/R)-math.sin(lat1)*math.sin(lat2))
-        
+    
+    def hello():
+        print('hello')

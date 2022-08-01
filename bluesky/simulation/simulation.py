@@ -77,7 +77,7 @@ class Simulation:
 
             # Determine interval towards next timestep                
             self.simt, self.simdt = simtime.step(dt_increment)
-
+            
             # Update UTC time
             self.utc += datetime.timedelta(seconds=self.simdt)
 
@@ -249,8 +249,8 @@ class Simulation:
                 plugins=list(plugin.Plugin.plugins.keys()))
             bs.net.send_event(b'SIMSTATE', simstate, target=sender_rte)
 
-        #elif 'CUSTOM_EVENTS' in plugin.Plugin.loaded_plugins:
-         #   ce.custom_events.process(eventname,eventdata)
+        elif 'CUSTOM_EVENTS' in plugin.Plugin.loaded_plugins:
+           event_processed = ce.custom_events.process(eventdata,eventname)
 
         if event_processed == False:
             # This is either an unknown event or a gui event.

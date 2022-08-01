@@ -20,9 +20,9 @@ BUFFER_SIZE = 1000000
 BATCH_SIZE = 256
 
 LR_A = 3e-3
-LR_Q = 3e-2
+LR_Q = 3e-3
 
-N_NEURONS = 256
+N_NEURONS = 128
 
 
 class SAC:
@@ -45,7 +45,7 @@ class SAC:
         
         self.target_alpha = -np.prod((self.actiondim,)).item()
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-        self.alpha_optimizer = optim.Adam([self.log_alpha], lr=3e-4)
+        self.alpha_optimizer = optim.Adam([self.log_alpha], lr=alpha)
 
         self.actor = Actor(self.statedim, self.actiondim, hidden_dim1=self.n_neurons,hidden_dim2=self.n_neurons).to(self.device)
 
