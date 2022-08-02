@@ -86,19 +86,21 @@ def get_statesize():
     n_aircraft = bs.settings.num_aircraft
     state_start = 3
     state_per_ac = 8
+    logstate_per_ac = 11
         
     state_size  = state_start + n_aircraft*state_per_ac + 1
+    logstate_size = state_start + n_aircraft*logstate_per_ac + 1
     
-    return state_size, state_start
+    return state_size, state_start, logstate_size
 
 def normalize_state(state):
     tempstate = state[:]
     normvec = np.loadtxt('normalize_vector.txt')
-    num_ac = bs.settings.num_aircraft
+    n_aircraft = bs.settings.num_aircraft
     
     state_per_ac = 8
 
-    for i in range(num_ac-1):
+    for i in range(n_aircraft-1):
         # Create an normalization array equal to the size of the statevector
         # [-state_per_ac:] copies the vector entries corresponding to the intruder states
         normvec = np.concatenate((normvec,normvec[-state_per_ac:]))

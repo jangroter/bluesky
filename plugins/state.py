@@ -18,25 +18,26 @@ import functions as fn
 ## State Settings ##
 searchradius = 0.3 * nm # m around ac searched
 searchlayers = 4 
-n_aircraft = 3
+n_aircraft = bs.settings.num_aircraft
 
 num_headinglayers = bs.settings.num_headinglayers
 
 def get_state(idx, target_alt):
-    state_size, statestart = fn.get_statesize()
+    state_size, statestart, logstate_size = fn.get_statesize()
     state = np.zeros(state_size) # Create state array of correct state length
+    logstate = np.zeros(logstate_size)
 
-    state[0] = abs((target_alt*ft - traf.alt[idx]) / ft) # Remaining climb or descend altitude
-    state[1] = abs(traf.vs[idx]) # Vertical speed
-    state[2] = traf.tas[idx] # True air speed
-    state[3] = get_delta_heading(idx, num_headinglayers) # Heading difference with current layer
+    state[0] = logstate[0] = abs((target_alt*ft - traf.alt[idx]) / ft) # Remaining climb or descend altitude
+    state[1] = logstate[1] = abs(traf.vs[idx]) # Vertical speed
+    state[2] = logstate[2] = traf.tas[idx] # True air speed
+    state[3] = logstate[3] = get_delta_heading(idx, num_headinglayers) # Heading difference with current layer
 
     aircraftinbounds = get_aircraftinbounds(idx, searchradius, searchlayers, target_alt)
     sortedaircraft = sort_aircraft(aircraftinbounds, idx, n_aircraft)
 
-    state, acid = append_ac_state(statestart, state, n_aircraft, idx, sortedaircraft)
+    state, logstate = append_ac_state(statestart, state, n_aircraft, idx, sortedaircraft, logstate)
 
-    return state, acid
+    return state, logstate
 
 def get_delta_heading(idx, num_headinglayers):
     layer     = fn.get_layerfromalt(traf.alt[idx])
@@ -86,11 +87,14 @@ def sort_aircraft(aircraftinbounds, idx, n_aircraft):
         sortedaircraft = []
     return sortedaircraft
                 
-def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft):
+def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft, logstate):
     counter = 1
+    counterlog = 1
     acid = [None] * n_aircraft
     for i in range(len(sortedaircraft)):
         start = startnum+counter
+        startlog = startnum+counterlog
+
         j = int(sortedaircraft[i,0])
 
         heightdif = abs(traf.alt[j] - traf.alt[idx])
@@ -108,14 +112,21 @@ def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft):
         dx = dis * np.sin(brgrad - hdg) 
         dy = dis * np.cos(brgrad - hdg)
 
+        intrusion = 0
+        if conflict == 1 and tcpa == 0:
+            intrusion = 1
+
         tempstate = np.array([conflict,tcpa,dcpa,heightdif,du,dv,dx,dy])
+        templogstate = np.array([traf.id[j],intrusion,conflict,tcpa,dcpa,heightdif,du,dv,dx,dy,dis])
         state[start:(start+len(tempstate))] = tempstate
+        logstate[startlog:(startlog+len(templogstate))] = templogstate
         
         acid[i] = traf.id[j]
 
-        counter    += len(tempstate)
+        counter += len(tempstate)
+        counterlog += len(templogstate)
 
-    return state, acid
+    return state, logstate
     
 # Haversine formula which return the distance between 2 lat,lon coordinates
 def haversine(lat1,lon1,lat2,lon2):

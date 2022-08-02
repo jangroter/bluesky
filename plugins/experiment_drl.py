@@ -4,6 +4,8 @@ from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
 import bluesky as bs
 import numpy as np
 import math
+import pandas as pd
+from pathlib import Path
 
 import plugins.SAC.sac_agent as sac
 import plugins.state as st
@@ -11,10 +13,13 @@ import plugins.functions as fn
 import plugins.reward as rw
 
 timestep = 1.5
-state_size, _ = fn.get_statesize()
+state_size, _, _ = fn.get_statesize()
 action_size = 3
 
 onsetperiod = 600 # Number of seconds before experiment starts
+
+n_aircraft = bs.settings.num_aircraft
+
 
 def init_plugin():
     
@@ -40,9 +45,15 @@ class Experiment_drl(core.Entity):
 
         self.print = False
 
+        self.controlac = 0 # int type variable to keep track of the number of ac controlled
+
         self.rewards = np.array([])
         self.state_size = state_size
         self.action_size = action_size
+
+        self.logfile = None
+        self.lognumber = 0
+        self.init_logfile()
 
         with self.settrafarrays():
             self.targetalt = np.array([])  # Target altitude of the AC   
@@ -51,6 +62,7 @@ class Experiment_drl(core.Entity):
             self.distinit = np.array([])  # Initial (vertical) distance from target state
             self.totreward = np.array([])  # Total reward this AC has accumulated
             self.call = np.array([])  # Number of times AC has been comanded
+            self.acnum = np.array([]) # ith aircraft 
 
             self.state = []    # Latest state information
             self.action = []    # Latest selected actions
@@ -65,12 +77,13 @@ class Experiment_drl(core.Entity):
         self.first[-n:] = 1
         self.distinit[-n:] = 0
         self.call[-n:] = 0
+        self.acnum[-n:] = 0
         
         self.state[-n:] = list(np.zeros(self.state_size))
         self.action[-n:] = list(np.zeros(self.action_size))
         self.choice[-n:] = list(np.zeros(self.action_size))
 
-    @core.timed_function(name='experiment_main', dt=timestep)
+    @core.timed_function(name='experiment_drl', dt=timestep)
     def update(self):
         for acid in traf.id:
             ac_idx = traf.id2idx(acid)
@@ -82,14 +95,16 @@ class Experiment_drl(core.Entity):
                 state = self.state[ac_idx]  # set the old state to the previous state
                 action = self.action[ac_idx] # set the old action to the previous action
                 
-                state_, _ = st.get_state(ac_idx, self.targetalt[ac_idx])
+                state_, logstate = st.get_state(ac_idx, self.targetalt[ac_idx])
 
                 staten_ = fn.normalize_state(np.array(state_))
 
                 if self.first[ac_idx]:
                     self.first[ac_idx] = 0
+                    self.acnum[ac_idx] = self.controlac
                     reward = 0 # Cant get a reward in the first step
                     done = 0
+                    self.controlac += 1
                     
                 else:
                     staten = fn.normalize_state(np.array(state)) 
@@ -113,6 +128,8 @@ class Experiment_drl(core.Entity):
                 if len(self.rewards) % 50 == 0 and self.print == True:
                     self.print = False
                     print(np.mean(self.rewards[-500:]))
+
+                self.log(logstate,action[0],acid,ac_idx)
 
 
 
@@ -175,4 +192,33 @@ class Experiment_drl(core.Entity):
         
         stack.stack(f'HDG {acid} {targetheading}')
 
+    def log(self,logstate,action,acid,ac_idx):
+        data = [acid, self.acnum[ac_idx], self.call[ac_idx]] + list(logstate) + list(action)
+        self.logfile.loc[len(self.logfile)] = data
+
+        if len(self.logfile) == 1000:
+            lognumber = str(self.lognumber)    
+
+            if self.lognumber == 0:
+                path = bs.settings.experiment_path + '\\' + bs.settings.experiment_name
+                Path(path).mkdir(parents=True, exist_ok=True)
+
+            logsavename = bs.settings.experiment_path +'\\'+ bs.settings.experiment_name+ '\\'+ 'logdata_'+lognumber+'.csv'
+            self.logfile.to_csv(logsavename)
+
+            self.lognumber += 1
+            self.init_logfile()
+
+    def init_logfile(self):
+        header = ['acid','acnum','callnum','alt_dif','vz','vh','d_hdg']
+        intruder_header = ['int_','intrusion_','conflict_','tcpa_','dcpa_','dalt_','du_','dv_','dx_','dy_','dis_']
+        tail_header = ['dvh','dvz','dhdg']
+
+        for i in range(n_aircraft):
+            header_append = [s + str(i) for s in intruder_header]
+            header = header + header_append
+
+        header = header + tail_header
+
+        self.logfile = pd.DataFrame(columns = header)
 
