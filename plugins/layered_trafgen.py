@@ -27,7 +27,7 @@ speed = 20
 density = 100 # AC/NM2 
 spawnrate = get_spawnrate(density,speed)
 
-headinglayers       = 16
+headinglayers = 16
 degreesperheading = 2*(360/headinglayers)
 
 basealtitude = 200
@@ -62,16 +62,19 @@ class Layered_trafgen(core.Entity):
 
         self.aircraftnumber = 0
 
-    @core.timed_function(name='layered_trafgen', dt=spawnrate)
+    @core.timed_function(name='layered_trafgen', dt=0.5)
     def update(self):
-        self.aircraftnumber += 1
-        
-        acid = str(self.aircraftnumber)
-        heading = random.randint(0,359)
-        altitude = self.get_altitude(heading)
-        lat,lon                 = self.get_spawn_location(heading)
-        
-        stack.stack(f'CRE {acid} Amzn {lat} {lon} {heading} {altitude} {speed}')
+        req_acspawned = int(bs.sim.simt / spawnrate)
+        spawn_defecit = req_acspawned - self.aircraftnumber
+        for i in range(spawn_defecit):
+            self.aircraftnumber += 1
+            
+            acid = str(self.aircraftnumber)
+            heading = random.randint(0,359)
+            altitude = self.get_altitude(heading)
+            lat,lon = self.get_spawn_location(heading)
+            
+            stack.stack(f'CRE {acid} Amzn {lat} {lon} {heading} {altitude} {speed}')
 
     def get_altitude(self, heading):
         layer           = random.randint(0,1)
