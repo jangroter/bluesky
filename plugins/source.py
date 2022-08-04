@@ -69,7 +69,7 @@ class Source(core.Entity):
 
         lat         = np.deg2rad(self.circlelat)
         lon         = np.deg2rad(self.circlelon)
-        radius      = self.circlerad * 1.852
+        radius      = self.circlerad * 1.852 # * (random.randint(20,100)/100) 
         
         latspawn    = np.rad2deg(self.get_new_latitude(bearing,lat, radius))
         lonspawn    = np.rad2deg(self.get_new_longitude(bearing, lon, lat, np.deg2rad(latspawn), radius))

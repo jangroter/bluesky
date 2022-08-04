@@ -19,8 +19,8 @@ POLICY_UPDATE_FREQUENCE = 1
 BUFFER_SIZE = 1000000
 BATCH_SIZE = 256
 
-LR_A = 3e-3
-LR_Q = 3e-2
+LR_A = 3e-4
+LR_Q = 3e-4
 
 N_NEURONS = 256
 
@@ -38,6 +38,9 @@ class SAC:
         self.n_neurons = n_neurons
         self.buffer_size = buffer_size
         self.batch_size = batch_size
+
+        self.qf1_lossarr = np.array([])
+        self.qf2_lossarr = np.array([])
 
         self.memory = ReplayBuffer(self.statedim,self.actiondim, self.buffer_size, self.batch_size)
 
@@ -117,6 +120,9 @@ class SAC:
         q_target = reward + self.gamma * vf_target * mask
         qf1_loss = F.mse_loss(q_target.detach(), q1_pred)
         qf2_loss = F.mse_loss(q_target.detach(), q2_pred)
+
+        self.qf1_lossarr = np.append(self.qf1_lossarr,qf1_loss.detach().cpu().numpy())
+        self.qf2_lossarr = np.append(self.qf2_lossarr,qf2_loss.detach().cpu().numpy())
 
         v_pred = self.vf(state)
         q_pred = torch.min(

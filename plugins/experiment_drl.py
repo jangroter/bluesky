@@ -236,9 +236,6 @@ class Experiment_drl(core.Entity):
 
         fc.fuelconsumption.fuelconsumed[idx] = 0
 
-        # print(f'dis reward: {dis}')
-        # print(f'fuel reward: {fuel}')
-
         done = min(d_f + d_oob, 1)
         reward = dis+step+fuel+finish+oob
 
