@@ -7,10 +7,12 @@ from bluesky.traffic import Route
 import bluesky as bs
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 import plugins.SAC.sac_agent as sac
 from plugins.source import Source
 import plugins.functions as fn
+import plugins.fuelconsumption as fc 
 
 timestep = 1.5
 state_size = 2
@@ -80,7 +82,8 @@ class Experiment_drl(core.Entity):
 
     @core.timed_function(name='experiment_main', dt=timestep)
     def update(self):
-
+        fc.fuelconsumption.update(timestep)
+        
         idx = 0
         
         self.check_ac()
@@ -90,7 +93,6 @@ class Experiment_drl(core.Entity):
         
         if self.action_required:
             state = self.get_state(idx)
-            #action = [[1,0]]
             action = self.agent.step(state)
             self.do_action(action,idx)
 
@@ -110,6 +112,12 @@ class Experiment_drl(core.Entity):
         if len(self.rewards) % 50 == 0 and self.print == True:
             self.print = False
             print(np.mean(self.rewards[-500:]))
+
+            fig, ax = plt.subplots()
+            ax.plot(self.agent.qf1_lossarr, label='qf1')
+            ax.plot(self.agent.qf2_lossarr, label='qf2')
+            fig.savefig('qloss.png')
+            plt.close(fig)
 
     def check_ac(self):
         if bs.traf.ntraf == 0:
@@ -145,11 +153,12 @@ class Experiment_drl(core.Entity):
 
     def check_done(self,idx):
 
+        fuel = self.get_rew_fuel(idx)
         finish, d_f = self.get_rew_finish(idx,self.state[idx])
         oob, d_oob = self.get_rew_outofbounds(idx)
 
         done = min(d_f + d_oob, 1)
-        reward = finish+oob
+        reward = finish+oob+fuel
 
         if done:
             state = self.get_state(idx)
@@ -220,31 +229,41 @@ class Experiment_drl(core.Entity):
 
     def get_reward(self,idx,state,state_):
         dis = self.get_rew_distance(state,state_)
-        step = self.get_rew_step()
-        fuel = self.get_rew_fuel()
+        step = self.get_rew_step(coeff = 0)
+        fuel = self.get_rew_fuel(idx)
         finish, d_f = self.get_rew_finish(idx,state)
         oob, d_oob = self.get_rew_outofbounds(idx)
+
+        fc.fuelconsumption.fuelconsumed[idx] = 0
+
+        # print(f'dis reward: {dis}')
+        # print(f'fuel reward: {fuel}')
 
         done = min(d_f + d_oob, 1)
         reward = dis+step+fuel+finish+oob
 
         return reward, done
 
-    def get_rew_distance(self,state,state_, coeff = 0.005):
+    def get_rew_distance(self,state,state_, coeff = 0.05):
         old_distance = np.sqrt(state[0]**2 + state[1]**2)*circlerad
         new_distance = np.sqrt(state_[0]**2 + state_[1]**2)*circlerad
 
         d_dis = old_distance - new_distance
+
+        d_dis = min(d_dis,0)
 
         return d_dis * coeff
 
     def get_rew_step(self, coeff = -0.01):
         return coeff
 
-    def get_rew_fuel(self, coeff = 0):
-        return coeff
+    def get_rew_fuel(self, idx, coeff = -0.005):
+        fuel = fc.fuelconsumption.fuelconsumed[idx]
+        reward = coeff * fuel
+                
+        return reward
 
-    def get_rew_finish(self, idx, state, coeff = 15):
+    def get_rew_finish(self, idx, state, coeff = 0):
         lat, lon = self.get_latlon_state(state)
 
         lat_ = bs.traf.lat[idx]
