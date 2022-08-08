@@ -17,14 +17,28 @@ modified, cited, etc. without any limitations.
 
 **Citation info:** J. M. Hoekstra and J. Ellerbroek, "[BlueSky ATC Simulator Project: an Open Data and Open Source Approach](https://www.researchgate.net/publication/304490055_BlueSky_ATC_Simulator_Project_an_Open_Data_and_Open_Source_Approach)", Proceedings of the seventh International Conference for Research on Air Transport (ICRAT), 2016.
 
-## BlueSky Releases
-BlueSky is also available as a pip package, for which periodically version releases are made. You can find the latest release here:
-https://github.com/TUDelft-CNS-ATM/bluesky/releases
-The BlueSky pip package is installed with the following command:
+This specific branch allows the uses of custom servers and server events to be implemented through means of a custom_server and custom_event plugin. This can be useful in the case where a centralized component has to control what happens in the different parallel threads. An example is provided for usage of the custom server and events for multi-core Reinforcement Learning, where a centralized agent is maintained in the server and the different clients request actions from this agent.
 
-    pip install bluesky-simulator[full]
 
-Using ZSH? Add quotes around the package name: `"bluesky-simulator[full]"`. For more installation instructions go to the Wiki.
+
+## Starting BlueSky with a custom server:
+
+A custom server can be started from the terminal by executing the command: 
+```console
+python BlueSky.py --customserver "name_of_serverfile"
+```
+
+Additional nodes can be added through initialization of a batch scenario file or by manually clicking the add node button in the GUI.
+
+## Creating your own custom server:
+
+To create your own custom server you should create a CustomServer(Server) class within the plugins folder. To add additional functionality to the server class you can alter the customevent(self, eventname, src, dest, msg, route, data, sender_id) function which should return the boolean variable msgpassed, which is True is the custom server did handle the message and False otherwise.
+
+For an example implementation of a custom server, see DRL_server.py under the plugins folder.
+
+Next to this you probably also need a custom event handler which handles custom messages send by the server on the client side. Messages send by the server to a specific client pass through the "process" function within the clients custom event handler which checks if the message are relevant for them. Change this function to ensure that the messages that are send through the custom server also reach the client.
+
+For an example implemntation of a custom event handler, see custom_events.py under the plugins folder.
 
 ## BlueSky Wiki
 Installation and user guides are accessible at:
