@@ -35,9 +35,9 @@ def get_state(idx, target_alt):
     aircraftinbounds = get_aircraftinbounds(idx, searchradius, searchlayers, target_alt)
     sortedaircraft = sort_aircraft(aircraftinbounds, idx, n_aircraft)
 
-    state, logstate = append_ac_state(statestart, state, n_aircraft, idx, sortedaircraft, logstate)
+    state, logstate, int_idx = append_ac_state(statestart, state, n_aircraft, idx, sortedaircraft, logstate)
 
-    return state, logstate
+    return state, logstate, int_idx
 
 def get_delta_heading(idx, num_headinglayers):
     layer     = fn.get_layerfromalt(traf.alt[idx])
@@ -91,6 +91,7 @@ def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft, logstate):
     counter = 1
     counterlog = 1
     acid = [None] * n_aircraft
+    int_idx = np.empty((0,3))
     for i in range(len(sortedaircraft)):
         start = startnum+counter
         startlog = startnum+counterlog
@@ -116,6 +117,9 @@ def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft, logstate):
         if conflict == 1 and tcpa == 0:
             intrusion = 1
 
+        if conflict:
+            int_idx = np.vstack((int_idx,[j,tcpa,traf.id[j]]))
+
         tempstate = np.array([conflict,tcpa,dcpa,heightdif,du,dv,dx,dy])
         templogstate = np.array([traf.id[j],intrusion,conflict,tcpa,dcpa,heightdif,du,dv,dx,dy,dis])
         state[start:(start+len(tempstate))] = tempstate
@@ -126,7 +130,7 @@ def append_ac_state(startnum, state, n_aircraft, idx, sortedaircraft, logstate):
         counter += len(tempstate)
         counterlog += len(templogstate)
 
-    return state, logstate
+    return state, logstate, int_idx
     
 # Haversine formula which return the distance between 2 lat,lon coordinates
 def haversine(lat1,lon1,lat2,lon2):
@@ -256,3 +260,22 @@ def calc_relvel_ownshipframe(own_idx,int_idx):
     dv = traf.tas[int_idx] * m.sin(int_heading - own_heading)
     
     return du, dv
+
+def get_tcpa(own_idx, int_idx):
+    dvx, dvy = calc_relvel_cartesian(own_idx, int_idx)
+    
+    dis     = haversine(traf.lat[own_idx],traf.lon[own_idx], traf.lat[int_idx],traf.lon[int_idx])
+    brg     = bearing(traf.lat[own_idx],traf.lon[own_idx], traf.lat[int_idx],traf.lon[int_idx])
+    
+    brgrad = np.radians(brg)
+    dx = dis * np.sin(brgrad) 
+    dy = dis * np.cos(brgrad)  
+    
+    dv2 = dvx * dvx + dvy * dvy
+    vrel = np.sqrt(dv2)
+    
+    if abs(dv2) < 1e-6:
+        dv2 = 1e-6          # limit lower absolute value
+
+    tcpa = (dvx * dx + dvy * dy) / dv2
+    return tcpa

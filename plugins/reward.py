@@ -29,12 +29,12 @@ def calc_reward_a(state_):
         return 0, 1
 
 def calc_reward_b(state_):
-    numac = bs.settings.num_aircraft
+    n_aircraft = bs.settings.num_aircraft
     
     state_start = 3
     state_per_ac = 8
     
-    for i in range(0,numac):
+    for i in range(0,n_aircraft):
         if state_[state_start+2+state_per_ac*i] == 0 and state_[state_start+1+state_per_ac*i] == 1:
             return -1, 0  
     return 0, 1
