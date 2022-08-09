@@ -94,8 +94,8 @@ class Experiment_drl(core.Entity):
                 
                 state = self.state[ac_idx]  # set the old state to the previous state
                 action = self.action[ac_idx] # set the old action to the previous action
-                
-                state_, logstate = st.get_state(ac_idx, self.targetalt[ac_idx])
+
+                state_, logstate, int_idx = st.get_state(ac_idx, self.targetalt[ac_idx])
 
                 staten_ = fn.normalize_state(np.array(state_))
 
@@ -196,7 +196,7 @@ class Experiment_drl(core.Entity):
         data = [acid, self.acnum[ac_idx], self.call[ac_idx]] + list(logstate) + list(action)
         self.logfile.loc[len(self.logfile)] = data
 
-        if len(self.logfile) == 1000:
+        if len(self.logfile) == 10000:
             lognumber = str(self.lognumber)    
 
             if self.lognumber == 0:
