@@ -74,7 +74,7 @@ class Layered_trafgen(core.Entity):
             altitude = self.get_altitude(heading)
             lat,lon = self.get_spawn_location(heading)
             
-            stack.stack(f'CRE {acid} Amzn {lat} {lon} {heading} {altitude} {speed}')
+            stack.stack(f'CRE {acid} MAVIC {lat} {lon} {heading} {altitude} {speed}')
 
     def get_altitude(self, heading):
         layer           = random.randint(0,1)
