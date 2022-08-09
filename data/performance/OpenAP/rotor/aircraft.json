@@ -144,7 +144,7 @@
     "envelop": {
       "v_min": -18,
       "v_max": 18,
-      "vs_min": -3,
+      "vs_min": -5,
       "vs_max": 5,
       "h_max": 5000,
       "d_range_max": 7      
