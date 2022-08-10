@@ -24,7 +24,7 @@ def calc_reward_a(state_):
     altperlayer         = (maxaltitude - basealtitude)/(headinglayers)
     
     if state_[0] < altperlayer:
-        return 1, 0
+        return 0, 0
     else:
         return 0, 1
 
@@ -33,8 +33,11 @@ def calc_reward_b(state_):
     
     state_start = 3
     state_per_ac = 8
+
+    reward = 0
     
     for i in range(0,n_aircraft):
         if state_[state_start+2+state_per_ac*i] == 0 and state_[state_start+1+state_per_ac*i] == 1:
-            return -1, 0  
-    return 0, 1
+            reward += -0.25
+            
+    return reward, 1
