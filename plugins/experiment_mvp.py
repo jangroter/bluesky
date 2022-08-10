@@ -94,6 +94,7 @@ class Experiment_mvp(core.Entity):
                 if self.first[ac_idx]:
                     self.reset_action(acid,ac_idx)
                     self.first[ac_idx] = 0
+                    self.controlac += 1
 
                 else:
                     v = np.array([traf.cas[ac_idx]*np.sin(np.deg2rad(traf.hdg[ac_idx])), traf.cas[ac_idx]*np.cos(np.deg2rad(traf.hdg[ac_idx])), traf.vs[ac_idx]])
@@ -123,6 +124,7 @@ class Experiment_mvp(core.Entity):
                     if len(self.rewards) % 50 == 0 and self.print == True:
                         self.print = False
                         print(np.mean(self.rewards[-500:]))
+                        
                     
                     self.log(logstate,action,acid,ac_idx)
 
@@ -215,7 +217,7 @@ class Experiment_mvp(core.Entity):
     def init_logfile(self):
         header = ['acid','acnum','callnum','alt_dif','vz','vh','d_hdg']
         intruder_header = ['int_','intrusion_','conflict_','tcpa_','dcpa_','dalt_','du_','dv_','dx_','dy_','dis_']
-        tail_header = ['dvh','dvz','dhdg']
+        tail_header = ['dvz','dvh','dhdg']
 
         for i in range(n_aircraft):
             header_append = [s + str(i) for s in intruder_header]
