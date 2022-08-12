@@ -318,7 +318,7 @@ class MVP(ConflictResolution):
         # Compute the  vertical intrusion
         # Amount of vertical intrusion dependent on vertical relative velocity
         iV = hpz_m if abs(vrel[2]) > 0.0 else hpz_m - abs(drel[2])
-
+        
         # Get the time to solve the conflict vertically - tsolveV
         tsolV = abs(drel[2] / vrel[2]) if abs(vrel[2]) > 0.0 else tLOS
 
