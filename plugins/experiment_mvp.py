@@ -1,7 +1,7 @@
 from re import L
 from bluesky import core, stack, traf, tools, settings 
 from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
-from bluesky.tools import geo
+from bluesky.tools import geo, areafilter
 import bluesky as bs
 import numpy as np
 import math
@@ -53,11 +53,15 @@ class Experiment_mvp(core.Entity):
         self.state_size = state_size
         self.action_size = action_size
 
+        self.not_finished = 0
+
         self.logfile = None
         self.lognumber = 0
         self.init_logfile()
 
         with self.settrafarrays():
+            self.insdel = np.array([], dtype=np.bool)
+
             self.targetalt = np.array([])  # Target altitude of the AC   
             self.control = np.array([])  # Is AC controlled by external algorithm
             self.first = np.array([])  # Is it the first time AC is called
@@ -70,7 +74,8 @@ class Experiment_mvp(core.Entity):
 
     def create(self, n=1):
         super().create(n)
-        
+        self.insdel[-n:] = False
+
         self.targetalt[-n:] = traf.alt[-n:]  
         self.control[-n:] = 0
         self.totreward[-n:] = 0
@@ -83,6 +88,7 @@ class Experiment_mvp(core.Entity):
 
     @core.timed_function(name='experiment_mvp', dt=timestep)
     def update(self):
+        self.check_inside()
         for acid in traf.id:
             ac_idx = traf.id2idx(acid)
             self.update_AC_control(ac_idx)
@@ -121,10 +127,14 @@ class Experiment_mvp(core.Entity):
                         self.update_conflist(ac_idx)
                         self.reset_action(acid,ac_idx)
                     
-                    if len(self.rewards) % 50 == 0 and self.print == True:
+                    if (len(self.rewards)-self.not_finished) % 50 == 0 and self.print == True:
                         self.print = False
-                        print(np.mean(self.rewards[-500:]))
-                        
+                        print(np.mean(self.rewards))
+                        print(f'completed {len(self.rewards)} flights, fucked up {self.not_finished} flights')
+
+                    if len(self.rewards) == 5000:
+                        stack.stack('QUIT')
+
                     
                     self.log(logstate,action,acid,ac_idx)
 
@@ -177,7 +187,19 @@ class Experiment_mvp(core.Entity):
                 action[2] = newtrack - bs.traf.hdg[ac_idx]
 
         return action
-            
+    
+    def check_inside(self):
+        insdel = areafilter.checkInside('SIM_ENVIRONMENT', traf.lat, traf.lon, traf.alt)
+        delidx = np.where(np.array(self.insdel) * (np.array(insdel) == False))[0]
+        self.insdel = insdel
+
+        if len(delidx) > 0:
+            delcontr = np.where((self.control[delidx]))[0]
+            if len(delcontr) > 0:
+                self.rewards = np.append(self.rewards, self.totreward[delcontr])
+                self.not_finished += len(delcontr)
+            traf.delete(delidx)
+
     def update_conflist(self,ac_idx):
         if self.confint[ac_idx]:
             for i in self.confint[ac_idx]:
@@ -285,18 +307,27 @@ class Experiment_mvp(core.Entity):
         # Amount of vertical intrusion dependent on vertical relative velocity
         iV = (hpz * safety) if abs(vrel[2])>0.0 else (hpz * safety)-abs(drel[2])
 
+        # Exception handlers for same-alt conflicts
+        # This is done to prevent division by zero in the next step
+        drel[2] = np.where(abs(drel[2]) < 0.01, 0.01, drel[2])
+
         # Get the time to solve the conflict vertically - tsolveV
         tsolV = abs(drel[2]/vrel[2]) if abs(vrel[2])>0.0 else tLOS
-
+        
         # If the time to solve the conflict vertically is longer than the look-ahead time,
         # because the the relative vertical speed is very small, then solve the intrusion
         # within tinconf
         if tsolV>50:
             tsolV = tLOS
             iV    = (hpz * safety)
+        
+        # If already in intrusion and no vertical speed differences, get out of intrusion horizontally
+        tsolV = 1000 if tsolV == 0 else tsolV
+
 
         dv3 = np.where(abs(vrel[2])>0.0,  (iV/tsolV)*(-vrel[2]/abs(vrel[2])), (iV/tsolV))
-        
+
+
         dv = np.array([dv1,dv2,dv3])
         
         return dv, tsolV
