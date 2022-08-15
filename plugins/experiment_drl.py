@@ -1,6 +1,7 @@
 from re import L
 from bluesky import core, stack, traf, tools, settings 
 from bluesky.tools.aero import ft, nm, fpm, Rearth, kts
+from bluesky.tools import geo, areafilter
 import bluesky as bs
 import numpy as np
 import math
@@ -51,11 +52,15 @@ class Experiment_drl(core.Entity):
         self.state_size = state_size
         self.action_size = action_size
 
+        self.not_finished = 0
+
         self.logfile = None
         self.lognumber = 0
         self.init_logfile()
 
         with self.settrafarrays():
+            self.insdel = np.array([], dtype=np.bool)
+
             self.targetalt = np.array([])  # Target altitude of the AC   
             self.control = np.array([])  # Is AC controlled by external algorithm
             self.first = np.array([])  # Is it the first time AC is called
@@ -70,7 +75,8 @@ class Experiment_drl(core.Entity):
 
     def create(self, n=1):
         super().create(n)
-        
+        self.insdel[-n:] = False
+
         self.targetalt[-n:] = traf.alt[-n:]  
         self.control[-n:] = 0
         self.totreward[-n:] = 0
@@ -85,6 +91,7 @@ class Experiment_drl(core.Entity):
 
     @core.timed_function(name='experiment_drl', dt=timestep)
     def update(self):
+        self.check_inside()
         for acid in traf.id:
             ac_idx = traf.id2idx(acid)
             self.update_AC_control(ac_idx)
@@ -131,9 +138,6 @@ class Experiment_drl(core.Entity):
 
                 self.log(logstate,action[0],acid,ac_idx)
 
-
-
-    
     def update_AC_control(self,ac_idx):   
         if self.first[ac_idx]:                
             # Checks if the AC is inside the bounds of the delivery area
@@ -152,6 +156,18 @@ class Experiment_drl(core.Entity):
                 # because that information is still required in that case.
                 if control == 0:
                     self.first[ac_idx] = 0
+
+    def check_inside(self):
+        insdel = areafilter.checkInside('SIM_ENVIRONMENT', traf.lat, traf.lon, traf.alt)
+        delidx = np.where(np.array(self.insdel) * (np.array(insdel) == False))[0]
+        self.insdel = insdel
+
+        if len(delidx) > 0:
+            delcontr = np.where((self.control[delidx]))[0]
+            if len(delcontr) > 0:
+                self.rewards = np.append(self.rewards, self.totreward[delcontr])
+                self.not_finished += len(delcontr)
+            traf.delete(delidx)
 
     def do_action(self,action,acid,ac_idx):
         self.do_vz(action,acid,ac_idx)     
