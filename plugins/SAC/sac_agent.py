@@ -26,10 +26,12 @@ N_NEURONS = 256
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, alpha = LR_A, beta = LR_Q, gamma = GAMMA, tau = TAU,
+    def __init__(self, action_dim, state_dim, model_path, alpha = LR_A, beta = LR_Q, gamma = GAMMA, tau = TAU,
                 n_neurons = N_NEURONS, buffer_size = BUFFER_SIZE, batch_size = BATCH_SIZE):                
         self.statedim = state_dim
         self.actiondim = action_dim
+
+        self.model_path = model_path
 
         self.alpha = alpha
         self.beta = beta
@@ -121,8 +123,9 @@ class SAC:
         qf1_loss = F.mse_loss(q_target.detach(), q1_pred)
         qf2_loss = F.mse_loss(q_target.detach(), q2_pred)
 
-        self.qf1_lossarr = np.append(self.qf1_lossarr,qf1_loss.detach().cpu().numpy())
-        self.qf2_lossarr = np.append(self.qf2_lossarr,qf2_loss.detach().cpu().numpy())
+        if len(self.qf1_lossarr) < 30000:
+            self.qf1_lossarr = np.append(self.qf1_lossarr,qf1_loss.detach().cpu().numpy())
+            self.qf2_lossarr = np.append(self.qf2_lossarr,qf2_loss.detach().cpu().numpy())
 
         v_pred = self.vf(state)
         q_pred = torch.min(
@@ -159,18 +162,18 @@ class SAC:
         return actor_loss.data, qf_loss.data, v_loss.data, alpha_loss.data
     
     def save_models(self):
-        torch.save(self.actor.state_dict(), "results/actor.pt")
-        torch.save(self.qf1.state_dict(), "results/qf1.pt")
-        torch.save(self.qf2.state_dict(), "results/qf2.pt")
-        torch.save(self.vf.state_dict(), "results/vf.pt")       
+        torch.save(self.actor.state_dict(), self.model_path+"/model/actor.pt")
+        torch.save(self.qf1.state_dict(),  self.model_path+"/model/qf1.pt")
+        torch.save(self.qf2.state_dict(), self.model_path+"/model/qf2.pt")
+        torch.save(self.vf.state_dict(),  self.model_path+"/model/vf.pt")       
 
     def load_models(self):
         # The models were trained on a CUDA device
         # If you are running on a CPU-only machine, use torch.load with map_location=torch.device('cpu') to map your storages to the CPU.
-        self.actor.load_state_dict(torch.load("results/actor.pt", map_location=torch.device('cpu')))
-        self.qf1.load_state_dict(torch.load("results/qf1.pt", map_location=torch.device('cpu')))
-        self.qf2.load_state_dict(torch.load("results/qf2.pt", map_location=torch.device('cpu')))
-        self.vf.load_state_dict(torch.load("results/vf.pt", map_location=torch.device('cpu')))
+        self.actor.load_state_dict(torch.load( self.model_path+"/model/actor.pt", map_location=torch.device('cpu')))
+        self.qf1.load_state_dict(torch.load( self.model_path+"/model/qf1.pt", map_location=torch.device('cpu')))
+        self.qf2.load_state_dict(torch.load( self.model_path+"/model/qf2.pt", map_location=torch.device('cpu')))
+        self.vf.load_state_dict(torch.load( self.model_path+"/model/vf.pt", map_location=torch.device('cpu')))
     
     def _target_soft_update(self):
         for t_param, l_param in zip(
