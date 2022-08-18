@@ -8,6 +8,8 @@ import math
 import pandas as pd
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+
 import plugins.SAC.sac_agent as sac
 import plugins.state as st
 import plugins.functions as fn
@@ -20,6 +22,10 @@ action_size = 3
 onsetperiod = 600 # Number of seconds before experiment starts
 
 n_aircraft = bs.settings.num_aircraft
+
+# '\\' for windows, '/' for linux or mac
+dir_symbol = '\\'
+model_path = bs.settings.experiment_path + dir_symbol + bs.settings.experiment_name
 
 
 def init_plugin():
@@ -42,7 +48,7 @@ class Experiment_drl(core.Entity):
     def __init__(self):
         super().__init__()
 
-        self.agent = sac.SAC(action_size,state_size)
+        self.agent = sac.SAC(action_size,state_size, model_path)
 
         self.print = False
 
@@ -136,6 +142,17 @@ class Experiment_drl(core.Entity):
                     self.print = False
                     print(np.mean(self.rewards[-500:]))
 
+                    fig, ax = plt.subplots()
+                    ax.plot(self.agent.qf1_lossarr, label='qf1')
+                    ax.plot(self.agent.qf2_lossarr, label='qf2')
+                    fig.savefig('qloss.png')
+                    plt.close(fig)
+
+                    fig, ax = plt.subplots()
+                    ax.plot(self.rewards, label='total reward')
+                    fig.savefig('reward.png')
+                    plt.close(fig)
+
                 self.log(logstate,action[0],acid,ac_idx)
 
     def update_AC_control(self,ac_idx):   
@@ -212,15 +229,19 @@ class Experiment_drl(core.Entity):
         data = [acid, self.acnum[ac_idx], self.call[ac_idx]] + list(logstate) + list(action)
         self.logfile.loc[len(self.logfile)] = data
 
-        if len(self.logfile) == 10000:
+        if len(self.logfile) == 100:
             lognumber = str(self.lognumber)    
 
             if self.lognumber == 0:
-                path = bs.settings.experiment_path + '\\' + bs.settings.experiment_name
+                path = model_path
+                Path(path).mkdir(parents=True, exist_ok=True)
+                path = model_path+dir_symbol+"model"
                 Path(path).mkdir(parents=True, exist_ok=True)
 
-            logsavename = bs.settings.experiment_path +'\\'+ bs.settings.experiment_name+ '\\'+ 'logdata_'+lognumber+'.csv'
+            logsavename = bs.settings.experiment_path +dir_symbol+ bs.settings.experiment_name+ dir_symbol+ 'logdata_'+lognumber+'.csv'
             self.logfile.to_csv(logsavename)
+
+            self.agent.save_models()
 
             self.lognumber += 1
             self.init_logfile()
