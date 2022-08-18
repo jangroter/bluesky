@@ -113,9 +113,13 @@ class Experiment_base(core.Entity):
                     
                     if len(self.rewards) % 50 == 0 and self.print == True:
                         self.print = False
-                        print(np.mean(self.rewards[-500:]))
+                        print(np.mean(self.rewards))
                         print(f'completed {len(self.rewards)} flights')
-                    
+
+                        if len(self.rewards) == 5000:
+                            stack.stack('QUIT')
+
+
                     self.log(logstate,action,acid,ac_idx)
 
     def update_AC_control(self,ac_idx):   
@@ -153,7 +157,7 @@ class Experiment_base(core.Entity):
         data = [acid, self.acnum[ac_idx], self.call[ac_idx]] + list(logstate) + list(action)
         self.logfile.loc[len(self.logfile)] = data
 
-        if len(self.logfile) == 10000:
+        if len(self.logfile) == 20000:
             lognumber = str(self.lognumber)    
 
             if self.lognumber == 0:
