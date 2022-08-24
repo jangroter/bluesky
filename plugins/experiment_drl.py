@@ -13,6 +13,7 @@ import plugins.SAC.sac_agent as sac
 from plugins.source import Source
 import plugins.functions as fn
 import plugins.fuelconsumption as fc 
+import plugins.noise_emission as ne
 
 timestep = 1.5
 state_size = 2
@@ -231,10 +232,12 @@ class Experiment_drl(core.Entity):
         dis = self.get_rew_distance(state,state_)
         step = self.get_rew_step(coeff = 0)
         fuel = self.get_rew_fuel(idx)
+        noise = self.get_rew_noise(idx)
         finish, d_f = self.get_rew_finish(idx,state)
         oob, d_oob = self.get_rew_outofbounds(idx)
 
         fc.fuelconsumption.fuelconsumed[idx] = 0
+        ne.noisepollution.noise[idx] = 0
 
         done = min(d_f + d_oob, 1)
         reward = dis+step+fuel+finish+oob
@@ -259,6 +262,12 @@ class Experiment_drl(core.Entity):
         reward = coeff * fuel
                 
         return reward
+    
+    def get_rew_noise(self,idx, coeff = 1):
+        noise = ne.noisepollution.noise[idx]
+        reward = coeff * noise
+
+        return noise
 
     def get_rew_finish(self, idx, state, coeff = 0):
         lat, lon = self.get_latlon_state(state)
