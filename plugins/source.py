@@ -50,7 +50,7 @@ class Source(core.Entity):
     def create_ac(self): 
         acid                    = 'KL' + str(self.ac_nmbr)
         heading                 = random.randint(0,359)
-        altitude                = 36000 * ft
+        altitude                = 15000 * ft
         lat,lon                 = self.get_spawn(heading)
         speed                   = self.speed * kts
         

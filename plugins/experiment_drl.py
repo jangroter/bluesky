@@ -13,7 +13,7 @@ import plugins.SAC.sac_agent as sac
 from plugins.source import Source
 import plugins.functions as fn
 import plugins.fuelconsumption as fc 
-import plugins.noise_emission as ne
+import plugins.noisepollution as noisepol
 
 timestep = 1.5
 state_size = 2
@@ -84,6 +84,7 @@ class Experiment_drl(core.Entity):
     @core.timed_function(name='experiment_main', dt=timestep)
     def update(self):
         fc.fuelconsumption.update(timestep)
+        noisepol.noisepollution.update(timestep)
         
         idx = 0
         
@@ -183,14 +184,14 @@ class Experiment_drl(core.Entity):
     def get_state(self,idx):
         brg, dist = geo.kwikqdrdist(circle_lat, circle_lon, bs.traf.lat[idx], bs.traf.lon[idx])
 
-        x = np.cos(np.radians(brg))*dist*nm2km / circlerad
-        y = np.sin(np.radians(brg))*dist*nm2km / circlerad
+        x = np.sin(np.radians(brg))*dist*nm2km / circlerad
+        y = np.cos(np.radians(brg))*dist*nm2km / circlerad
 
         return [x,y]
 
     def get_latlon_state(self,state):
         distance = np.sqrt(state[0]**2 + state[1]**2)*circlerad
-        bearing = math.atan2(state[1],state[0])
+        bearing = math.atan2(state[0],state[1])
 
         lat = self.get_new_latitude(bearing,np.deg2rad(circle_lat),distance)
         lon = self.get_new_longitude(bearing,np.deg2rad(circle_lon),np.deg2rad(circle_lat),lat,distance)   
@@ -202,7 +203,7 @@ class Experiment_drl(core.Entity):
 
         action = action[0]
         distance = max(math.sqrt(action[0]**2 + action[1]**2)*max_action,2)
-        bearing = math.atan2(action[1],action[0])
+        bearing = math.atan2(action[0],action[1])
 
         ac_lat = np.deg2rad(bs.traf.lat[idx])
         ac_lon = np.deg2rad(bs.traf.lon[idx])
@@ -232,13 +233,13 @@ class Experiment_drl(core.Entity):
         dis = self.get_rew_distance(state,state_)
         step = self.get_rew_step(coeff = 0)
         fuel = self.get_rew_fuel(idx)
-        noise = self.get_rew_noise(idx)
+        noise = self.get_rew_noise(idx) #Coeff ~ -0.002
         finish, d_f = self.get_rew_finish(idx,state)
         oob, d_oob = self.get_rew_outofbounds(idx)
 
         fc.fuelconsumption.fuelconsumed[idx] = 0
-        ne.noisepollution.noise[idx] = 0
-
+        noisepol.noisepollution.noise[idx] = 0
+        
         done = min(d_f + d_oob, 1)
         reward = dis+step+fuel+finish+oob
 
@@ -263,11 +264,11 @@ class Experiment_drl(core.Entity):
                 
         return reward
     
-    def get_rew_noise(self,idx, coeff = 1):
-        noise = ne.noisepollution.noise[idx]
+    def get_rew_noise(self,idx, coeff = -1):
+        noise = noisepol.noisepollution.noise[idx]
         reward = coeff * noise
 
-        return noise
+        return reward
 
     def get_rew_finish(self, idx, state, coeff = 0):
         lat, lon = self.get_latlon_state(state)
