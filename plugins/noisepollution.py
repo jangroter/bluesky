@@ -62,8 +62,13 @@ class Noisepollution(core.Entity):
             y = np.cos(np.radians(brg))*dist*nm
             z = bs.traf.alt[i]
 
-            distance2 = (self.x_array-x)**2 + (self.y_array-y)**2 + z**2
+            x_index_min = int(((x+500000)/1000)-10)
+            x_index_max = int(((x+500000)/1000)+10)
+            y_index_min = int(((500000 - y)/1000)-10)
+            y_index_max = int(((500000 - y)/1000)+10)
+
+            distance2 = (self.x_array[y_index_min:y_index_max,x_index_min:x_index_max]-x)**2 + (self.y_array[y_index_min:y_index_max,x_index_min:x_index_max]-y)**2 + z**2
             sound = base_sound_1m/(distance2)
             sound[sound<sound_cutoff] = 0
 
-            self.noise[i] += np.sum(self.pop_array * sound)*dt
+            self.noise[i] += np.sum(self.pop_array[y_index_min:y_index_max,x_index_min:x_index_max] * sound)*dt
