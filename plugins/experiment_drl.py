@@ -8,14 +8,15 @@ import bluesky as bs
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-import plugins.SAC.sac_agent as sac
+import plugins.SAC_n_layers.sac_agent as sac
 from plugins.source import Source
 import plugins.functions as fn
 import plugins.fuelconsumption as fc 
 import plugins.noisepollution as noisepol
 
-timestep = 1.5
+timestep = 5
 state_size = 2
 action_size = 2
 
@@ -28,6 +29,23 @@ max_episode_length = 15
 
 circle_lat = 52.3322
 circle_lon = 4.75
+
+# '\\' for windows, '/' for linux or mac
+model_name = 'E_4_256'
+#poly_arc(self.circlelat,self.circlelon,20,30,-30)
+    
+
+# dir_symbol = '\\'
+# model_path = 'output' + dir_symbol + model_name + dir_symbol + 'model'
+
+model_path = 'output' + '/' + model_name + '/' + 'model'
+
+# Make folder for logfiles
+path = Path(model_path)
+path.mkdir(parents=True, exist_ok=True)
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
 
 def init_plugin():
     
@@ -49,13 +67,14 @@ class Experiment_drl(core.Entity):
     def __init__(self):
         super().__init__()
 
-        self.agent = sac.SAC(action_size,state_size)
+        self.agent = sac.SAC(action_size,state_size,path)
 
         self.rewards = np.array([])
         self.state_size = state_size
         self.action_size = action_size
 
         self.first = True
+
         self.action_required = False
         self.AC_present = False
         self.new_wpt_set = True
@@ -64,7 +83,12 @@ class Experiment_drl(core.Entity):
         self.wptdist = 0
         self.wptdist_old = 0
 
+        self.nac = 0
+
         self.source = Source()
+
+        self.fuel = np.array([])
+        self.noise = np.array([])
 
         with self.settrafarrays():
             self.totreward = np.array([])  # Total reward this AC has accumulated
@@ -114,6 +138,8 @@ class Experiment_drl(core.Entity):
         if len(self.rewards) % 50 == 0 and self.print == True:
             self.print = False
             print(np.mean(self.rewards[-500:]))
+            print(f'Fuel: {np.mean(self.fuel)}')
+            print(f'Noise: {np.mean(self.noise)}')
 
             fig, ax = plt.subplots()
             ax.plot(self.agent.qf1_lossarr, label='qf1')
@@ -121,11 +147,25 @@ class Experiment_drl(core.Entity):
             fig.savefig('qloss.png')
             plt.close(fig)
 
+            fig, ax = plt.subplots()
+            ax.plot(self.rewards, label='total reward', alpha = 0.5)
+            ax.plot(moving_average(self.rewards,50))
+            fig.savefig('reward.png')
+            plt.close(fig)
+
+            self.log()
+
     def check_ac(self):
         if bs.traf.ntraf == 0:
-            self.source.create_ac()
+            # self.source.create_ac()
+            """ b4 """
+            rmax = min(((self.nac//500)+1)*25,150)
+            self.source.create_ac(radiusmax = rmax)
+
             self.first = True
             self.action_required = True
+
+            self.nac += 1
         else: 
             if self.check_past_wpt(0):
                 self.action_required = True
@@ -163,6 +203,10 @@ class Experiment_drl(core.Entity):
         reward = finish+oob+fuel
 
         if done:
+            # terminate episode, but dont let model know about it if out-of-bounds,
+            # this limits cheesing of episodes by quickly flying out of bounds/
+            if d_oob == 1:
+                done = 0
             state = self.get_state(idx)
             self.totreward[idx] += reward
             self.rewards = np.append(self.rewards, self.totreward[idx])
@@ -232,28 +276,37 @@ class Experiment_drl(core.Entity):
     def get_reward(self,idx,state,state_):
         dis = self.get_rew_distance(state,state_)
         step = self.get_rew_step(coeff = 0)
-        fuel = self.get_rew_fuel(idx)
-        noise = self.get_rew_noise(idx) #Coeff ~ -0.002
+        fuel = self.get_rew_fuel(idx, coeff = -0.03/17.) #Fuel ~ Noise * 17 
+        noise = self.get_rew_noise(idx, coeff = -0.03) #Coeff ~ -0.002
         finish, d_f = self.get_rew_finish(idx,state)
         oob, d_oob = self.get_rew_outofbounds(idx)
+
+        self.fuel = np.append(self.fuel,fuel)
+        self.noise = np.append(self.noise,noise)
 
         fc.fuelconsumption.fuelconsumed[idx] = 0
         noisepol.noisepollution.noise[idx] = 0
         
-        done = min(d_f + d_oob, 1)
-        reward = dis+step+fuel+finish+oob
+        done = min(d_f, 1)
+        reward = dis+step+fuel+noise+finish+oob
 
         return reward, done
 
-    def get_rew_distance(self,state,state_, coeff = 0.05):
+    def get_rew_distance(self,state,state_, coeff = 0.005):
         old_distance = np.sqrt(state[0]**2 + state[1]**2)*circlerad
         new_distance = np.sqrt(state_[0]**2 + state_[1]**2)*circlerad
 
         d_dis = old_distance - new_distance
 
-        d_dis = min(d_dis,0)
+        """ c1 """
+        # d_dis = min(d_dis,0)
+        # return d_dis * coeff
 
-        return d_dis * coeff
+        """ c2 """
+        # return d_dis * coeff
+
+        """ c3 """
+        return 0
 
     def get_rew_step(self, coeff = -0.01):
         return coeff
@@ -277,17 +330,21 @@ class Experiment_drl(core.Entity):
         lon_ = bs.traf.lon[idx]
 
         if areafilter.checkIntersect('SINK', lat, lon, lat_, lon_):
-            return coeff, 1
+            return 5, 1
 
         if areafilter.checkIntersect('RESTRICT', lat, lon, lat_, lon_):
-            return -2, 1
+            return -1, 1
 
         else:
             return 0, 0
 
-    def get_rew_outofbounds(self, idx, coeff = -5):
+    def get_rew_outofbounds(self, idx, coeff = -1):
         dis_origin = fn.haversine(circle_lat, circle_lon, bs.traf.lat[idx], bs.traf.lon[idx])
-        if dis_origin > circlerad*1.01:
+        if dis_origin > circlerad*1.10:
             return coeff, 1
         else:
             return 0, 0
+
+    def log(self):
+        np.savetxt(model_name+'_reward.csv', self.rewards)
+        self.agent.save_models()

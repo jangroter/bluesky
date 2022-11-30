@@ -20,7 +20,7 @@ def poly_arc(lat_c,lon_c,radius,lowerbound,upperbound):
     # Inputs
     lat0 = lat_c             # latitude of the center of the circle [deg]
     lon0 = lon_c            # longitude of the center of the circle [deg]
-    Rcircle = radius * 1852.0  # radius of circle [NM]
+    Rcircle = radius * 1852.0  # radius of circle [m]
 
     # Compute flat Earth correction at the center of the experiment circle
     coslatinv = 1.0 / np.cos(np.deg2rad(lat0))

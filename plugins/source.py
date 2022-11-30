@@ -36,8 +36,6 @@ class Source(core.Entity):
     circlerad           = 150
     
     speed               = 250
-    
-    spawntime = 600
 
     ac_nmbr = 1
 
@@ -45,13 +43,13 @@ class Source(core.Entity):
         super().__init__()
         stack.stack(f'Circle source {self.circlelat} {self.circlelon} {self.circlerad}')
 
-        poly_arc(self.circlelat,self.circlelon,30,160,20)
+        poly_arc(self.circlelat,self.circlelon,20,30,-30)
     
-    def create_ac(self): 
+    def create_ac(self, radiusmax = 0): 
         acid                    = 'KL' + str(self.ac_nmbr)
         heading                 = random.randint(0,359)
         altitude                = 15000 * ft
-        lat,lon                 = self.get_spawn(heading)
+        lat,lon                 = self.get_spawn(heading, radiusmax)
         speed                   = self.speed * kts
         
         traf.cre(acid,'a320',lat,lon,heading,altitude,speed)
@@ -61,7 +59,7 @@ class Source(core.Entity):
         self.ac_nmbr += 1
                 
     
-    def get_spawn(self, heading):
+    def get_spawn(self, heading, radiusmax):
 
         enterpoint = random.randint(-9999,9999)/10000
        
@@ -69,8 +67,19 @@ class Source(core.Entity):
 
         lat         = np.deg2rad(self.circlelat)
         lon         = np.deg2rad(self.circlelon)
-        radius      = self.circlerad * 1.852 # * (random.randint(20,100)/100) 
+
+        """ b1 """
+        #radius = self.circlerad * 1.852 
         
+        """ b2 """
+        radius = self.circlerad * 1.852 * random.random()
+
+        """ b3 """
+        #radius = self.circlerad * 1.852 * math.sqrt(random.random())
+
+        """ b4 """
+        #radius = radiusmax * 1.852 * random.random()
+
         latspawn    = np.rad2deg(self.get_new_latitude(bearing,lat, radius))
         lonspawn    = np.rad2deg(self.get_new_longitude(bearing, lon, lat, np.deg2rad(latspawn), radius))
         

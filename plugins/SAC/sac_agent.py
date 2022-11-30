@@ -22,14 +22,18 @@ BATCH_SIZE = 256
 LR_A = 3e-4
 LR_Q = 3e-4
 
-N_NEURONS = 256
+N_NEURONS = 1024
 
+# '\\' for windows, '/' for linux or mac
+dir_symbol = '\\'
 
 class SAC:
-    def __init__(self, action_dim, state_dim, alpha = LR_A, beta = LR_Q, gamma = GAMMA, tau = TAU,
+    def __init__(self, action_dim, state_dim, model_path, alpha = LR_A, beta = LR_Q, gamma = GAMMA, tau = TAU,
                 n_neurons = N_NEURONS, buffer_size = BUFFER_SIZE, batch_size = BATCH_SIZE):                
         self.statedim = state_dim
         self.actiondim = action_dim
+
+        self.model_path = model_path
 
         self.alpha = alpha
         self.beta = beta
@@ -159,10 +163,10 @@ class SAC:
         return actor_loss.data, qf_loss.data, v_loss.data, alpha_loss.data
     
     def save_models(self):
-        torch.save(self.actor.state_dict(), "results/actor.pt")
-        torch.save(self.qf1.state_dict(), "results/qf1.pt")
-        torch.save(self.qf2.state_dict(), "results/qf2.pt")
-        torch.save(self.vf.state_dict(), "results/vf.pt")       
+        torch.save(self.actor.state_dict(), (self.model_path / "actor.pt"))
+        torch.save(self.qf1.state_dict(),  (self.model_path / "qf1.pt"))
+        torch.save(self.qf2.state_dict(), (self.model_path / "qf2.pt"))
+        torch.save(self.vf.state_dict(),  (self.model_path / "vf.pt"))   
 
     def load_models(self):
         # The models were trained on a CUDA device
