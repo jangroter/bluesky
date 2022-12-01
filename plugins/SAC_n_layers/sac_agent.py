@@ -24,7 +24,7 @@ LR_Q = 3e-4
 
 N_NEURONS = 1024
 
-NETWORK_STRUCTURE = [[256,torch.nn.ReLU()],[256,torch.nn.ReLU()],[256,torch.nn.ReLU()],[256,torch.nn.ReLU()]]
+NETWORK_STRUCTURE = [[1024,torch.nn.ReLU()],[1024,torch.nn.ReLU()],[1024,torch.nn.ReLU()],[1024,torch.nn.ReLU()]]
 
 # '\\' for windows, '/' for linux or mac
 dir_symbol = '\\'
