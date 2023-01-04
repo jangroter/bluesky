@@ -16,6 +16,7 @@ class Actor(nn.Module):
         in_dim: int,
         out_dim: int,
         layers_data: list,
+        test: bool= False,
         log_std_min: float= -20,
         log_std_max: float=2):
         super(Actor, self).__init__()
@@ -25,6 +26,8 @@ class Actor(nn.Module):
 
         self.layers = nn.ModuleList()
         self.in_dim = in_dim
+
+        self.test = test
 
         for size, activation in layers_data:
                 self.layers.append(nn.Linear(in_dim, size))
@@ -60,7 +63,8 @@ class Actor(nn.Module):
 
         log_prob = dist.log_prob(z) - torch.log(1 - action.pow(2) + 1e-7)
         log_prob = log_prob.sum(-1, keepdim=True)
-
+        if self.test:
+            return mu, log_prob
         return action, log_prob
 
 

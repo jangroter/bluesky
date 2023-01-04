@@ -24,19 +24,19 @@ LR_Q = 3e-4
 
 N_NEURONS = 1024
 
-NETWORK_STRUCTURE = [[256,torch.nn.ReLU()],[256,torch.nn.ReLU()],[256,torch.nn.ReLU()],[256,torch.nn.ReLU()]]
+NETWORK_STRUCTURE = [[256,torch.nn.ReLU()],[256,torch.nn.ReLU()]]
 
 # '\\' for windows, '/' for linux or mac
 dir_symbol = '\\'
 
 class SAC:
     def __init__(self, action_dim, state_dim, model_path, alpha = LR_A, beta = LR_Q, gamma = GAMMA, tau = TAU,
-                n_neurons = N_NEURONS, buffer_size = BUFFER_SIZE, batch_size = BATCH_SIZE):                
+                n_neurons = N_NEURONS, buffer_size = BUFFER_SIZE, batch_size = BATCH_SIZE, test = False):                
         self.statedim = state_dim
         self.actiondim = action_dim
 
         self.model_path = model_path
-
+        
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
@@ -44,6 +44,7 @@ class SAC:
         self.n_neurons = n_neurons
         self.buffer_size = buffer_size
         self.batch_size = batch_size
+        self.is_test = test
 
         self.qf1_lossarr = np.array([])
         self.qf2_lossarr = np.array([])
@@ -56,7 +57,7 @@ class SAC:
         self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha_optimizer = optim.Adam([self.log_alpha], lr=3e-4)
 
-        self.actor = Actor(self.statedim, self.actiondim, NETWORK_STRUCTURE).to(self.device)
+        self.actor = Actor(self.statedim, self.actiondim, NETWORK_STRUCTURE,test=self.is_test).to(self.device)
 
         self.vf = CriticV(self.statedim, NETWORK_STRUCTURE).to(self.device)
         self.vf_target = CriticV(self.statedim, NETWORK_STRUCTURE).to(self.device)
@@ -73,9 +74,7 @@ class SAC:
         self.transition = [[]]
 
         self.total_step = 0
-
-        self.is_test = False
-        
+      
         if self.device.type == 'cpu':
             print('DEVICE USED', self.device.type)
         else:
@@ -173,10 +172,10 @@ class SAC:
     def load_models(self):
         # The models were trained on a CUDA device
         # If you are running on a CPU-only machine, use torch.load with map_location=torch.device('cpu') to map your storages to the CPU.
-        self.actor.load_state_dict(torch.load("results/actor.pt", map_location=torch.device('cpu')))
-        self.qf1.load_state_dict(torch.load("results/qf1.pt", map_location=torch.device('cpu')))
-        self.qf2.load_state_dict(torch.load("results/qf2.pt", map_location=torch.device('cpu')))
-        self.vf.load_state_dict(torch.load("results/vf.pt", map_location=torch.device('cpu')))
+        self.actor.load_state_dict(torch.load(self.model_path / "actor.pt", map_location=torch.device('cpu')))
+        self.qf1.load_state_dict(torch.load(self.model_path / "qf1.pt", map_location=torch.device('cpu')))
+        self.qf2.load_state_dict(torch.load(self.model_path / "qf2.pt", map_location=torch.device('cpu')))
+        self.vf.load_state_dict(torch.load(self.model_path / "vf.pt", map_location=torch.device('cpu')))
     
     def _target_soft_update(self):
         for t_param, l_param in zip(
